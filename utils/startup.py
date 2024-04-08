@@ -9,6 +9,7 @@ from utils.startup_create import create_usage_bar
 from pathlib import Path
 import subprocess
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
 
@@ -77,6 +78,38 @@ async def startup_send_webhook(bot, guild_id):
     jst_time = datetime.now(pytz.timezone('Asia/Tokyo')).strftime('%Y-%m-%d_%H-%M-%S')
     webhook_name = f"{bot.user.name} | {jst_time}"
 
+    def find_latest_log_file(base_dir='data/logging'):
+        """最新のログファイルのパスを返す関数"""
+        latest_date_dir = max([os.path.join(base_dir, d) for d in os.listdir(base_dir)], key=os.path.getmtime)
+        latest_time_dir = max([os.path.join(latest_date_dir, d) for d in os.listdir(latest_date_dir)], key=os.path.getmtime)
+        log_files = [os.path.join(latest_time_dir, f) for f in os.listdir(latest_time_dir) if f.endswith('.json')]
+        if log_files:
+            return max(log_files, key=os.path.getmtime)
+        return None
+
+    def find_session_id_from_json(log_file_path):
+        """JSON形式のログファイルからセッションIDを検索し、見つかった場合は返す関数"""
+        try:
+            with open(log_file_path, 'r') as log_file:
+                log_data = json.load(log_file)
+                return log_data.get('session_id')
+        except FileNotFoundError:
+            print(f"ログファイルが見つかりません: {log_file_path}")
+        except json.JSONDecodeError:
+            print(f"ログファイルの形式が正しくありません: {log_file_path}")
+        return None
+
+    latest_log_file = find_latest_log_file()
+    session_id = None
+    if latest_log_file:
+        session_id = find_session_id_from_json(latest_log_file)
+        if session_id:
+            print(f"Found Session ID: {session_id}")
+        else:
+            print("Session ID not found.")
+    else:
+        print("ログファイルが見つかりませんでした。")
+
     failed_cogs = await load_cogs(bot)
 
     embed = discord.Embed(title="起動通知", description="Botが起動しました。", color=discord.Color.green() if not failed_cogs else discord.Color.red())
@@ -84,6 +117,7 @@ async def startup_send_webhook(bot, guild_id):
     embed.add_field(name="Bot ID", value=bot.user.id, inline=True)
     embed.add_field(name="CogsList", value=", ".join(bot.cogs.keys()), inline=False)
     embed.set_footer(text="Botは正常に起動しました。" if not failed_cogs else "Botは正常に起動していません。")
+    embed.set_author(name=session_id)
 
     if failed_cogs:
         failed_embed = discord.Embed(title="正常に読み込めなかったCogファイル一覧", color=discord.Color.red())
@@ -95,7 +129,7 @@ async def startup_send_webhook(bot, guild_id):
     else:
         webhook = await channel.create_webhook(name=webhook_name)
         await webhook.send(embed=embed)
-        await webhook.delete()
+        await webhook.delete() 
 
 async def startup_send_botinfo(bot):
     guild = bot.get_guild(startup_guild_id)

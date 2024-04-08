@@ -2,9 +2,13 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
+import re
 import pathlib
 import uuid
+from datetime import datetime
+import logging
 from utils import presence
+from utils.logging import save_log
 from utils.startup import startup_send_webhook, startup_send_botinfo
 
 load_dotenv()
@@ -25,35 +29,67 @@ class CustomHelpCommand(commands.DefaultHelpCommand):
                 self.paginator.add_line(signature)
         await self.get_destination().send("\n".join(self.paginator.pages))
 
+session_id = None
+
+class SessionIDHandler(logging.Handler):
+    def emit(self, record):
+        global session_id
+        message = record.getMessage()
+        match = re.search(r'Session ID: ([a-f0-9]+)', message)
+        if match:
+            session_id = match.group(1)
+            print(f"セッションIDを検出しました: {session_id}")
+
+logger = logging.getLogger('discord.gateway')
+logger.setLevel(logging.INFO)
+logger.addHandler(SessionIDHandler())
+
 TOKEN = os.getenv('BOT_TOKEN')
 command_prefix = ['anti:/', 'a／', 'a/', 'a!/', 'a!／', 'a!']
 main_guild_id = int(os.getenv('MAIN_GUILD_ID'))
 startup_channel_id = int(os.getenv('STARTUP_CHANNEL_ID'))
 
-class MyBot(commands.Bot):
+class MyBot(commands.AutoShardedBot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.initialized = False
         self.cog_classes = {}
         self.ERROR_LOG_CHANNEL_ID = int(os.getenv('ERROR_LOG_CHANNEL_ID'))
-    async def on_ready(self):
+
+    async def setup_hook(self):
+        self.loop.create_task(self.after_ready())
+
+    async def after_ready(self):
+        await self.wait_until_ready()
+        print("setup_hook is called")
+        await self.load_cogs('cogs')
+        await self.tree.sync()
         if not self.initialized:
+            print("Initializing...")
             await self.change_presence(activity=discord.Game(name="起動中.."))
-            print('------')
-            print(f'Bot Username: {self.user.name}')
-            print(f'BotID: {self.user.id}')
-            print('------')
-            await self.load_cogs('cogs')
-            await bot.tree.sync()
             self.loop.create_task(presence.update_presence(self))
             self.initialized = True
             print('------')
             print('All cogs have been loaded and bot is ready.')
             print('------')
-            await startup_send_webhook(bot, guild_id=main_guild_id)
-            await startup_send_botinfo(bot)
-        else:
-            print('Bot is already initialized.')
+
+    async def on_ready(self):
+        print("on_ready is called")
+        log_data = {
+            "event": "BotReady",
+            "description": f"{self.user} has successfully connected to Discord.",
+            "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "session_id": session_id
+        }
+        save_log(log_data)
+        if not self.initialized:
+            try:
+                await startup_send_webhook(self, guild_id=main_guild_id)
+                await startup_send_botinfo(self)
+            except Exception as e:
+                print(f"Error during startup: {e}")
+            self.initialized = True
+
 
     async def load_cogs(self, folder_name: str):
         cur = pathlib.Path('.')
@@ -97,4 +133,4 @@ class MyBot(commands.Bot):
 intent: discord.Intents = discord.Intents.all()
 bot = MyBot(command_prefix=command_prefix, intents=intent, help_command=CustomHelpCommand())
 
-bot.run(TOKEN)
+bot.run(TOKEN)  
