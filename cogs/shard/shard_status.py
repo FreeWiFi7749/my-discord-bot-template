@@ -12,10 +12,9 @@ class ShardStatusCog(commands.Cog):
 
         for shard_id, shard in enumerate(self.bot.shards.values()):
             if shard is None:
-                continue  # シャードが存在しない場合はスキップ
+                continue
 
             latency = shard.latency * 1000
-            # 接続状況の判定ロジックを変更
             if shard.is_closed():
                 connection_status = "lost"
             elif shard.is_ws_ratelimited():
@@ -31,7 +30,7 @@ class ShardStatusCog(commands.Cog):
             embed.add_field(name="PING", value=f"{latency:.2f} ms", inline=False)
             embed.add_field(name="接続状況", value=connection_status, inline=False)
             embed.add_field(name="管理しているギルド数", value=str(guild_count), inline=False)
-            embed.add_field(name="推定ユーザー数", value=str(user_count), inline=False)
+            embed.add_field(name="推定ユーザー数", value=str(user_count), inline=True)
 
             await ctx.send(embed=embed)
 
