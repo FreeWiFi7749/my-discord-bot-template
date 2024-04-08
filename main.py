@@ -7,6 +7,7 @@ import pathlib
 import uuid
 from datetime import datetime
 import logging
+import asyncio
 from utils import presence
 from utils.logging import save_log
 from utils.startup import startup_send_webhook, startup_send_botinfo
@@ -94,6 +95,7 @@ class BugReportModal(discord.ui.Modal, title="バグ報告"):
             if self.image.value:
                 embed.set_image(url=self.image.value)
             await dev_channel.send(embed=embed)
+            
             await interaction.response.send_message("バグを報告しました。ありがとうございます！", ephemeral=True)
         else:
             e = discord.Embed(title="エラー", description="> 予期せぬエラーです\n\n<@707320830387814531>にDMを送信するか、[サポートサーバー](https://hfspro.co/asb-discord)にてお問い合わせください", color=discord.Color.red())
@@ -109,10 +111,19 @@ class BugReportView(discord.ui.View):
         self.command_name = command_name
         self.server_name = server_name
 
-    @discord.ui.button(label="バグを報告する", style=discord.ButtonStyle.red, custom_id="report_bug_button")
-    async def report_bug_button_callback(self, interaction: discord.Interaction, button: Button):
+    async def disable_button(self, interaction):
+        await asyncio.sleep(300)
+        for item in self.children:
+            if item.custom_id == "my_button":
+                item.disabled = True
+        await interaction.edit_original_response(view=self)
+
+    @discord.ui.button(label="バグを報告する", style=discord.ButtonStyle.red, custom_id="report_bug_button", emoji="<:bug_hunter:1226787664020242482>")
+    async def report_bug_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         modal = BugReportModal(self.bot, self.error_id, self.channel_id, self.server_id, self.command_name, self.server_name)
         await interaction.response.send_modal(modal)
+        asyncio.create_task(self.disable_button(interaction))
+
 
 
 class MyBot(commands.AutoShardedBot):
@@ -206,7 +217,7 @@ class MyBot(commands.AutoShardedBot):
                 ),
                 color=discord.Color.red()
             )
-            embed_dm.set_footer(text="<:bug_hunter:1226787664020242482>バグ報告に貢献してくれた方にはサポート鯖で特別なロールを付与します。")
+            embed_dm.set_footer(text="バグ報告に貢献してくれた方にはサポート鯖で特別なロールを付与します。")
 
             await ctx.author.send(embed=embed_dm, view=view)
 
