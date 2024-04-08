@@ -112,7 +112,7 @@ class BugReportView(discord.ui.View):
         self.server_name = server_name
 
     async def disable_button(self, interaction):
-        await asyncio.sleep(300)
+        await asyncio.sleep(120)
         for item in self.children:
             if item.custom_id == "my_button":
                 item.disabled = True
@@ -194,10 +194,10 @@ class MyBot(commands.AutoShardedBot):
                 title="エラー通知",
                 description=(
                     "> <:error:1226790218552836167>コマンド実行中にエラーが発生しました。\n"
-                    f"エラーID: `{error_id}`\n"
-                    f"command: {ctx.command.qualified_name if ctx.command else 'N/A'}\n"
-                    f"ユーザー: {ctx.author.mention}\n"
-                    f"エラーメッセージ: {error}\n"
+                    f"**エラーID**: `{error_id}`\n"
+                    f"**コマンド**: {ctx.command.qualified_name if ctx.command else 'N/A'}\n"
+                    f"**ユーザー**: {ctx.author.mention}\n"
+                    f"**エラーメッセージ**: {error}\n"
                 ),
                 color=discord.Color.red()
             )

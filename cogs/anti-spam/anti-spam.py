@@ -103,7 +103,7 @@ class AntiSpamCog(commands.Cog):
         for message_id in message_ids:
             try:
                 msg = await channel.fetch_message(message_id)
-                message_data.append({"content": msg.content, "message_id": msg.id, "author_id": msg.author.id})
+                message_data.append({"content": msg.content, "message_id": msg.id, "author_id": msg.author.id, "channel_id": msg.channel.id})
             except discord.NotFound:
                 continue
 
@@ -121,18 +121,18 @@ class AntiSpamCog(commands.Cog):
             return json.load(f)
         
     #<----Select Menu Actions---->
-    async def handle_alert(self, interaction, message_list_path):
+    async def handle_alert(self, interaction: discord.Interaction, message_list_path):
         """スパムと判断されたメッセージを削除し、送信者をタイムアウトします。"""
         messages = self.load_message_list(message_list_path)
         if interaction:
             await interaction.response.defer(ephemeral=True)
         for message_data in messages:
-            channel = self.bot.get_channel(message_data['channel_id'])
+            channel = self.bot.get_channel(int(message_data['channel_id']))
             message = await channel.fetch_message(message_data['message_id'])
             await message.delete()
             member = message.guild.get_member(message_data['author_id'])
             if member:
-                await member.timeout(duration=timedelta(hours=1), reason="スパム行為")
+                await member.edit(communication_disabled_until=discord.utils.utcnow() + timedelta(hours=1), reason="スパム行為")
         if interaction:
             await interaction.followup.send("スパムと判断されたメッセージを削除し、送信者をタイムアウトしました。", ephemeral=True)
         else:

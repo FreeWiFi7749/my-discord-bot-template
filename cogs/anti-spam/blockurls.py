@@ -24,6 +24,9 @@ class URLBlock(commands.Cog):
 
     # <-----Utility Methods----->
     def get_domain(self, url):
+        # URLがhttp://またはhttps://で始まっていない場合、http://を追加
+        if not url.startswith(('http://', 'https://')):
+            url = 'http://' + url
         return urlparse(url).netloc
 
     def load_blocklist(self, guild_id):
@@ -61,27 +64,34 @@ class URLBlock(commands.Cog):
             await ctx.send('有効なサブコマンドを使用してください: set, rm, setup, setting')
 
     @urlblock.command()
-    async def set(self, ctx, *, url):
-        """指定されたURLをブロックリストに追加します。"""
-        print(f"setコマンドが呼び出されました: URL={url}")  # 追加
+    async def set(self, ctx, *, urls):
+        """指定されたURLをブロックリストに追加します。複数のURLを半角/全角の空白、またはhttp://、https://で区切って指定できます。"""
+        urls = re.split(r'[ 　]|https?://', urls)  # 半角/全角の空白、またはhttp://、https://で分割
+        urls = [url for url in urls if url]  # 空の要素を削除
+        print(f"setコマンドが呼び出されました: URL={urls}")  # 追加
         guild_id = ctx.guild.id
-        domain = self.get_domain(url)
-        print(f"取得したドメイン: {domain}")  # 追加
-        if not domain:
-            await ctx.send('有効なURLを指定してください。')
-            return
+        added_domains = []
+        already_in_list = []
 
-        blocklist = self.load_blocklist(guild_id)
-        print(f"現在のブロックリスト: {blocklist}")  # 追加
-        if domain not in blocklist:
-            blocklist.append(domain)
-            print(f"ブロックリストに追加後: {blocklist}")  # 追加
-            self.save_blocklist(guild_id, blocklist)
-            await ctx.send(f'`{domain}`をブロックリストに追加しました。')
+        for url in urls:
+            domain = self.get_domain(url)
+            if not domain:
+                await ctx.send(f'有効なURLを指定してください: {url}')
+                continue
+
+            blocklist = self.load_blocklist(guild_id)
+            if domain not in blocklist:
+                blocklist.append(domain)
+                self.save_blocklist(guild_id, blocklist)
+                added_domains.append(domain)
+            else:
+                already_in_list.append(domain)
+
+        if added_domains:
+            await ctx.send(f'以下のドメインをブロックリストに追加しました: `{"`, `".join(added_domains)}`')
             await self.add_or_update_automod_rule(guild_id, blocklist, ctx)
-            print("add_or_update_automod_ruleを呼び出しました")  # 追加
-        else:
-            await ctx.send('このドメインは既にブロックリストに含まれています。')
+        if already_in_list:
+            await ctx.send(f'以下のドメインは既にブロックリストに含まれています: `{"`, `".join(already_in_list)}`')
 
     @urlblock.command()
     async def rm(self, ctx, *, url):
@@ -132,7 +142,7 @@ class URLBlock(commands.Cog):
                             await ctx.send(embed=embed)
                             break
                     if not found:
-                        await ctx.send("「Blocked URLs by Anti Spam System」ルールが見つかりませんでした。`/urlblock set` コマンドでURLをブロックリストに追加して、ルールを作成してください。")
+                        await ctx.send("「Blocked URLs by Anti Spam System」ルールが見つかりませんでした。</urlblock set:1226956682584658121> コマンドでURLをブロックリストに追加して、ルールを作成してください。")
                 else:
                     await ctx.send("AutoModルールの取得に失敗しました。")
     # <-----Utility Methods----->
@@ -155,7 +165,7 @@ class URLBlock(commands.Cog):
             actions.append({"type": 2, "metadata": {"channel_id": settings.get("log_channel")}})
             
         print(f"アクション: {actions}")
-        regex_pattern = r"(?i)(" + "|".join(re.escape(domain) for domain in blocklist) + r")"
+        regex_pattern = "(^|[^a-zA-Z\\d])(" + "|".join([re.escape(domain) for domain in blocklist]) + ")($|[^a-zA-Z\\.\\d])"
         headers = {
             "Authorization": f"Bot {self.bot.http.token}",
             "Content-Type": "application/json"
@@ -186,7 +196,6 @@ class URLBlock(commands.Cog):
                             print(f"既存のルールを更新中: {update_url}")
                             async with session.patch(update_url, headers=headers, json=json_data) as update_response:
                                 try:
-
                                     response_status = update_response.status
                                     response_text = await update_response.text()
                                     print(f"更新レスポンスのステータスコード: {response_status}")
