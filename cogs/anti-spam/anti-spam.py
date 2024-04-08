@@ -63,13 +63,13 @@ class AntiSpamCog(commands.Cog):
         self.message_cache[key]["messages"].append(message.id)
 
         if self.message_cache[key]["count"] >= config.get("warning_count", 5):
-            await self.send_warning(message.guild.id, message.content, self.message_cache[key]["messages"], key)
+            await self.send_warning(message.guild.id, message.content, self.message_cache[key]["messages"], key, message.channel)
             del self.message_cache[key]
         elif self.message_cache[key]["count"] >= config.get("deletion_count", 10):
-            await self.handle_alert(None, self.save_message_list(message.guild.id, self.message_cache[key]["messages"]))
+            await self.handle_alert(None, self.save_message_list(message.guild.id, self.message_cache[key]["messages"], message.channel))
             del self.message_cache[key]
 
-    async def send_warning(self, guild_id, message_content, messages, key):
+    async def send_warning(self, guild_id, message_content, message_ids, key, channel):
         """指定されたギルドのログチャンネルに警告メッセージを送信します。"""
         config = self.load_config(guild_id)
         log_channel_id = config.get("log_channel")
@@ -78,12 +78,17 @@ class AntiSpamCog(commands.Cog):
         if log_channel_id:
             log_channel = self.bot.get_channel(log_channel_id)
             if log_channel:
-                message_list_path = self.save_message_list(guild_id, messages)
+                message_list_path = await self.save_message_list(guild_id, message_ids, channel)
                 embed = discord.Embed(title="スパム警告", description=f"スパムと思われるメッセージが{warning_count}回送信されました\nこのメッセージを確認したユーザーは以下のボタンから対応してください。\n\n\n   🚨警戒: スパムと思われるメッセージを全て消去し送信者を1時間タイムアウトします。\n   ✅安全: 送信されたメッセージを安全と判断し自動消去を無効化します。", color=discord.Color.orange())
+                try:
+                    first_message = await channel.fetch_message(message_ids[0])
+                except discord.NotFound:
+                    # メッセージが見つからない場合の処理
+                    return
                 embed.add_field(name="メッセージ内容", value=message_content, inline=True)
-                embed.add_field(name="正規表現", value=f"```{message_content}```", inline=True)
-                embed.add_field(name="送信者", value=messages[0].author.mention, inline=False)
-                embed.add_field(name="最新のメッセージ", value=messages[-1].jump_url, inline=False)
+                embed.add_field(name="正規表現", value=f"{message_content}```", inline=True)
+                embed.add_field(name="送信者", value=first_message.author.mention, inline=False)
+                embed.add_field(name="最新のメッセージ", value=first_message.jump_url, inline=False)
                 embed.set_footer(text=f"ファイルID: {os.path.basename(message_list_path)}")
                 view = AntiSpamView(self, guild_id, message_list_path)
                 if mention_role is not None:
@@ -92,9 +97,17 @@ class AntiSpamCog(commands.Cog):
                 else:
                     await log_channel.send(embed=embed, view=view)
     
-    def save_message_list(self, guild_id, messages):
+    async def save_message_list(self, guild_id, message_ids, channel):
         """メッセージリストをファイルに保存します。"""
-        message_data = [{"content": msg.content, "message_id": msg.id, "author_id": msg.author.id} for msg in messages]
+        message_data = []
+        for message_id in message_ids:
+            try:
+                msg = await channel.fetch_message(message_id)
+                message_data.append({"content": msg.content, "message_id": msg.id, "author_id": msg.author.id})
+            except discord.NotFound:
+                # メッセージが見つからない場合はスキップ
+                continue
+
         file_id = str(uuid.uuid4())
         path = f"data/antispam/{guild_id}/message_list/{file_id}.json"
         os.makedirs(os.path.dirname(path), exist_ok=True)

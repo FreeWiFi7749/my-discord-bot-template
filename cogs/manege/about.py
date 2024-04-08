@@ -78,6 +78,11 @@ class BotInfoCog(commands.Cog):
         memory_bar = create_usage_bar(memory_usage)
 
         embed = discord.Embed(title="BOT情報", description="バグ発見時: </bug_report:1226307114943774786>\nまたは<@707320830387814531>にDM\n-----------------",color=0x00ff00)
+        ba_channel_id = int(os.getenv('BOT_ANNOUNCEMENT_CHANNEL_ID'))
+        latest_announcement = await fetch_latest_announcement(self.bot, ba_channel_id)
+
+        if latest_announcement != "お知らせはありません。" and latest_announcement != "指定されたチャンネルが見つかりません。":
+            embed.add_field(name="最新のお知らせ", value=f"\n\n{latest_announcement}", inline=False)
         embed.add_field(name="BOT", value=f"開発元: <@{bot_owner_id}>", inline=True)
         embed.add_field(name="ホスト", value="momiji VPS", inline=True)
         embed.add_field(name="ホストPING", value=f"{pong}ms", inline=True)
@@ -87,12 +92,6 @@ class BotInfoCog(commands.Cog):
         embed.add_field(name="稼働時間", value=uptime, inline=False)
         embed.add_field(name="CPU 使用率", value=cpu_bar, inline=False)
         embed.add_field(name="メモリ使用率", value=f"{memory_bar} / {total_memory_gb}GB", inline=False)
-
-        ba_channel_id = int(os.getenv('BOT_ANNOUNCEMENT_CHANNEL_ID'))
-        latest_announcement = await fetch_latest_announcement(self.bot, ba_channel_id)
-
-        if latest_announcement != "お知らせはありません。" and latest_announcement != "指定されたチャンネルが見つかりません。":
-            embed.add_field(name="最新のお知らせ", value=f"\n\n{latest_announcement}", inline=False)
 
         await ctx.send(embed=embed)
 

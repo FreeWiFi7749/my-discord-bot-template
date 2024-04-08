@@ -66,7 +66,5 @@ class ManagementCog(commands.Cog):
         await ctx.send(embed=embed)
         await ctx.send(embed=e_failed_cogs)
 
-
-
 async def setup(bot):
     await bot.add_cog(ManagementCog(bot))

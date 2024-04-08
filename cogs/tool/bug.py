@@ -13,6 +13,7 @@ class BugReportCog(commands.Cog):
         self.bot = bot
 
     @commands.hybrid_command(name="bug_report")
+    @commands.dm_only()
     async def bug_report(self, ctx, 内容: str, 画像: discord.Attachment = None):
         """バグを報告します。"""
         dev_channel = self.bot.get_channel(main_dev_channel_id)
@@ -25,8 +26,15 @@ class BugReportCog(commands.Cog):
             return
         e = discord.Embed(title="バグ報告", description=内容, color=discord.Color.red())
         e.add_field(name="報告者", value=ctx.author.mention, inline=True)
-        e.add_field(name="サーバー", value=ctx.guild.name, inline=True)
-        e.add_field(name="チャンネル", value=ctx.channel.mention, inline=True)
+        if ctx.guild:
+            e.add_field(name="サーバー", value=ctx.guild.name, inline=True)
+        else:
+            e.add_field(name="サーバー", value="DM", inline=True)
+        if isinstance(ctx.channel, discord.DMChannel):
+            channel_mention = "DM"
+        else:
+            channel_mention = ctx.channel.mention
+        e.add_field(name="チャンネル", value=channel_mention, inline=True)
         if 画像 is not None:
             e.set_image(url=画像.url)
         await dev_channel.send(embed=e)

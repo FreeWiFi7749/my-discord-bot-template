@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
-from typing import Union
+from discord.ext.commands import Greedy
+from typing import Union, List
 
 class RoleAddRmCog(commands.Cog):
     def __init__(self, bot):
@@ -29,10 +30,14 @@ class RoleAddRmCog(commands.Cog):
 
     @role.command(name="multiple")
     @commands.has_permissions(manage_roles=True)
-    async def role_multiple(self, ctx, members: Union[discord.Member, List[discord.Member]], roles: List[discord.Role]):
+    async def role_multiple(self, ctx, members: Greedy[discord.Member], roles: Greedy[discord.Role]):
         """複数のロールを追加します。"""
-        if not isinstance(members, list):
-            members = [members]
+        if not members:
+            await ctx.send("メンバーが指定されていません。")
+            return
+        if not roles:
+            await ctx.send("ロールが指定されていません。")
+            return
         for member in members:
             for role in roles:
                 await member.add_roles(role)

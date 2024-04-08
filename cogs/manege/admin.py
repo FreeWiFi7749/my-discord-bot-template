@@ -4,7 +4,6 @@ import io
 import textwrap
 from contextlib import redirect_stdout
 import traceback
-import subprocess
 
 class AdminCog(commands.Cog):
     def __init__(self, bot):
@@ -18,6 +17,7 @@ class AdminCog(commands.Cog):
 
     @commands.hybrid_command(hidden=True, with_app_command=True, name='_eval')
     @commands.is_owner()
+    @commands.guild_only()
     async def _eval(self, ctx, *, body: str):
         """管理者用コマンド"""
         if not ctx.interaction:

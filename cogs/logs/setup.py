@@ -41,53 +41,64 @@ class LogSetupCog(commands.Cog):
             await ctx.send("ログの設定を行います。")
 
     @logs_group.command(name='role')
+    @commands.guild_only()
     async def logs_role(self, ctx, setting: bool, channel: discord.TextChannel=None):
         """ロールログの設定を行います。"""
         await self.toggle_logging(ctx, 'role', setting, channel=channel)
 
     @logs_group.command(name='message_edit')
+    @commands.guild_only()
     async def logs_message_edit(self, ctx, setting: bool, channel: discord.TextChannel=None):
         """メッセージログの設定を行います。"""
         await self.toggle_logging(ctx, 'message_edit', setting, channel=channel)
 
     @logs_group.command(name='message_delete')
+    @commands.guild_only()
     async def logs_message_delete(self, ctx, setting: bool, channel: discord.TextChannel=None):
         """メッセージ削除ログの設定を行います。"""
         await self.toggle_logging(ctx, 'message_delete', setting, channel=channel)
 
     @logs_group.command(name='join_remove')
+    @commands.guild_only()
     async def logs_join_remove(self, ctx, setting: bool, channel: discord.TextChannel=None):
         """参加・退出ログの設定を行います。"""
         await self.toggle_logging(ctx, 'join_remove', setting, channel=channel)
 
     @logs_group.command(name='voice')
+    @commands.guild_only()
     async def logs_voice(self, ctx, setting: bool, channel: discord.TextChannel=None):
         """ボイスチャンネルログの設定を行います。"""
         await self.toggle_logging(ctx, 'voice', setting, channel=channel)
 
     @logs_group.command(name='kick')
+    @commands.guild_only()
     async def logs_kick(self, ctx, setting: bool, channel: discord.TextChannel=None):
         """キックログの設定を行います。"""
         await self.toggle_logging(ctx, 'kick', setting, channel=channel)
 
     @logs_group.command(name='ban')
+    @commands.guild_only()
     async def logs_ban(self, ctx, setting: bool, channel: discord.TextChannel=None):
         """Banログの設定を行います。"""
         await self.toggle_logging(ctx, 'ban', setting, channel=channel)
 
     @logs_group.command(name='timeout')
+    @commands.guild_only()
     async def logs_timeout(self, ctx, setting: bool, channel: discord.TextChannel=None):
         """タイムアウトログの設定を行います。"""
         await self.toggle_logging(ctx, 'timeout', setting, channel=channel)
 
     @logs_group.command(name='nickname')
+    @commands.guild_only()
     async def logs_nickname(self, ctx, setting: bool, channel: discord.TextChannel=None):
         """ニックネームログの設定を行います。"""
         await self.toggle_logging(ctx, 'nickname', setting, channel=channel)
 
     @logs_group.command(name='channel')
+    @commands.guild_only()
     async def logs_channel(self, ctx, setting: bool, channel: discord.TextChannel=None):
         """チャンネルログの設定を行います。"""
         await self.toggle_logging(ctx, 'channellog', setting, channel=channel)
+        
 async def setup(bot):
     await bot.add_cog(LogSetupCog(bot))
