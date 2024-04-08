@@ -179,6 +179,20 @@ class MyBot(commands.AutoShardedBot):
             server_name = ctx.guild.name if ctx.guild else 'DM'
             channel_mention = f"<#{channel_id}>"
 
+            e = discord.Embed(
+                title="エラー通知",
+                description=(
+                    "> <:error:1226790218552836167>コマンド実行中にエラーが発生しました。\n"
+                    f"エラーID: `{error_id}`\n"
+                    f"command: {ctx.command.qualified_name if ctx.command else 'N/A'}\n"
+                    f"ユーザー: {ctx.author.mention}\n"
+                    f"エラーメッセージ: {error}\n"
+                ),
+                color=discord.Color.red()
+            )
+            e.set_footer(text=f"サーバー: {server_name}")
+            await self.get_channel(self.ERROR_LOG_CHANNEL_ID).send(embed=e)
+
             view = BugReportView(self, str(error_id), str(channel_id), str(server_id), ctx.command.qualified_name if ctx.command else "N/A", server_name)
 
             embed_dm = discord.Embed(

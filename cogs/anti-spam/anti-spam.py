@@ -105,7 +105,6 @@ class AntiSpamCog(commands.Cog):
                 msg = await channel.fetch_message(message_id)
                 message_data.append({"content": msg.content, "message_id": msg.id, "author_id": msg.author.id})
             except discord.NotFound:
-                # メッセージが見つからない場合はスキップ
                 continue
 
         file_id = str(uuid.uuid4())
