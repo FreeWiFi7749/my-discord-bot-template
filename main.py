@@ -10,6 +10,7 @@ import logging
 from utils import presence
 from utils.logging import save_log
 from utils.startup import startup_send_webhook, startup_send_botinfo
+from discord.ui import View, Button, Modal, TextInput
 
 load_dotenv()
 
@@ -48,6 +49,71 @@ TOKEN = os.getenv('BOT_TOKEN')
 command_prefix = ['anti:/', 'a／', 'a/', 'a!/', 'a!／', 'a!']
 main_guild_id = int(os.getenv('MAIN_GUILD_ID'))
 startup_channel_id = int(os.getenv('STARTUP_CHANNEL_ID'))
+main_dev_channel_id = int(os.getenv('BUG_REPORT_CHANNLE_ID'))
+main_dev_server_id = int(os.getenv('MAIN_GUILD_ID'))
+bug_report_channel_id = int(os.getenv('BUG_REPORT_CHANNLE_ID'))
+
+class BugReportModal(discord.ui.Modal, title="バグ報告"):
+    reason = discord.ui.TextInput(
+        label="バグの詳細",
+        style=discord.TextStyle.paragraph,
+        placeholder="ここにバグの詳細を記載してください...",
+        required=True,
+        max_length=1024
+    )
+    image = discord.ui.TextInput(
+        label="参考画像",
+        style=discord.TextStyle.paragraph,
+        placeholder="[必須ではありません]画像のURLを貼り付けてください...",
+        required=False,
+        max_length=1024
+    )
+
+    def __init__(self, bot, error_id, channel_id, server_id, command_name, server_name):
+        super().__init__()
+        self.bot = bot
+        self.error_id = error_id
+        self.channel_id = channel_id
+        self.server_id = server_id
+        self.command_name = command_name
+        self.server_name = server_name
+
+    async def on_submit(self, interaction: discord.Interaction):
+        dev_channel = self.bot.get_channel(bug_report_channel_id)
+        if dev_channel:
+
+            user_mention = interaction.user.mention
+            channel_mention = f"<#{self.channel_id}>"
+
+            embed = discord.Embed(title="エラーログ", description=f"エラーID: {self.error_id}", color=discord.Color.red())
+            embed.add_field(name="ユーザー", value=user_mention, inline=False)
+            embed.add_field(name="チャンネル", value=channel_mention, inline=False)
+            embed.add_field(name="サーバー", value=self.server_name, inline=False)
+            embed.add_field(name="コマンド", value=f"/{self.command_name}", inline=False)
+            embed.add_field(name="エラーメッセージ", value=self.reason.value, inline=False)
+            if self.image.value:
+                embed.set_image(url=self.image.value)
+            await dev_channel.send(embed=embed)
+            await interaction.response.send_message("バグを報告しました。ありがとうございます！", ephemeral=True)
+        else:
+            e = discord.Embed(title="エラー", description="> 予期せぬエラーです\n\n<@707320830387814531>にDMを送信するか、[サポートサーバー](https://hfspro.co/asb-discord)にてお問い合わせください", color=discord.Color.red())
+            await interaction.response.send_message(embed=e)
+
+class BugReportView(discord.ui.View):
+    def __init__(self, bot, error_id, channel_id, server_id, command_name, server_name):
+        super().__init__()
+        self.bot = bot
+        self.error_id = error_id
+        self.channel_id = channel_id
+        self.server_id = server_id
+        self.command_name = command_name
+        self.server_name = server_name
+
+    @discord.ui.button(label="バグを報告する", style=discord.ButtonStyle.red, custom_id="report_bug_button")
+    async def report_bug_button_callback(self, interaction: discord.Interaction, button: Button):
+        modal = BugReportModal(self.bot, self.error_id, self.channel_id, self.server_id, self.command_name, self.server_name)
+        await interaction.response.send_modal(modal)
+
 
 class MyBot(commands.AutoShardedBot):
     def __init__(self, *args, **kwargs):
@@ -107,28 +173,28 @@ class MyBot(commands.AutoShardedBot):
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CommandError):
             error_id = uuid.uuid4()
-            
-            error_channel = self.get_channel(self.ERROR_LOG_CHANNEL_ID)
-            if error_channel:
-                embed = discord.Embed(title="エラーログ", description=f"エラーID: {error_id}", color=discord.Color.red())
-                embed.add_field(name="ユーザー", value=ctx.author.mention, inline=False)
-                embed.add_field(name="コマンド", value=ctx.command.qualified_name if ctx.command else "N/A", inline=False)
-                embed.add_field(name="エラーメッセージ", value=str(error), inline=False)
-                await error_channel.send(embed=embed)
-            
+
+            channel_id = ctx.channel.id
+            server_id = ctx.guild.id if ctx.guild else 'DM'
+            server_name = ctx.guild.name if ctx.guild else 'DM'
+            channel_mention = f"<#{channel_id}>"
+
+            view = BugReportView(self, str(error_id), str(channel_id), str(server_id), ctx.command.qualified_name if ctx.command else "N/A", server_name)
+
             embed_dm = discord.Embed(
                 title="エラー通知",
                 description=(
-                    "コマンド実行中にエラーが発生しました。\n"
-                    f"エラーID: `{error_id}`\n\n"
-                    "</bug_report:1226307114943774786>コマンドにこのIDとエラー発生時の状況とその際のスクリーンショットを一緒に報告お願いします。"
+                    "> <:error:1226790218552836167>コマンド実行中にエラーが発生しました。\n"
+                    f"エラーID: `{error_id}`\n"
+                    f"チャンネル: {channel_mention}\n"
+                    f"サーバー: `{server_name}`\n\n"
+                    "__下のボタンを押してバグを報告してください。__\n参考となるスクリーンショットがある場合は**__事前に画像URL__**を準備してください。"
                 ),
                 color=discord.Color.red()
             )
-            embed_dm.set_footer(text="このメッセージはあなたにのみ表示されています。")
-            msg_error_id = error_id
-            await ctx.author.send(embed=embed_dm)
-            await ctx.author.send(f"このメッセージをコピーしてください\nエラーID: `{msg_error_id}`")
+            embed_dm.set_footer(text="<:bug_hunter:1226787664020242482>バグ報告に貢献してくれた方にはサポート鯖で特別なロールを付与します。")
+
+            await ctx.author.send(embed=embed_dm, view=view)
 
 intent: discord.Intents = discord.Intents.all()
 bot = MyBot(command_prefix=command_prefix, intents=intent, help_command=CustomHelpCommand())
