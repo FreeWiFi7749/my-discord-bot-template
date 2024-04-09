@@ -282,9 +282,4 @@ class MyBot(commands.AutoShardedBot):
 intent: discord.Intents = discord.Intents.all()
 bot = MyBot(command_prefix=command_prefix, intents=intent, help_command=CustomHelpCommand())
 
-bot.run(TOKEN) 
-
-intent: discord.Intents = discord.Intents.all()
-bot = MyBot(command_prefix=command_prefix, intents=intent, help_command=CustomHelpCommand())
-
-bot.run(TOKEN)  
+bot.run(TOKEN)

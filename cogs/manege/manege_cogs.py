@@ -5,6 +5,8 @@ import difflib
 from pathlib import Path
 import pathlib
 from utils import startup
+import asyncio
+import re
 class ManagementCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -23,26 +25,36 @@ class ManagementCog(commands.Cog):
         print(available_cogs)
         return available_cogs
 
-    def find_closest_match(self, user_input):
-        available_cogs = self._get_available_cogs()
-        closest_matches = difflib.get_close_matches(user_input, available_cogs)
-        return closest_matches[0] if closest_matches else None
-
     @commands.hybrid_command(name='reload', hidden=True)
     @commands.is_owner()
     async def reload_cog(self, ctx, *, cog: str):
         """指定したcogを再読み込みします"""
-        closest_match = self.find_closest_match('cogs.' + cog if not cog.startswith('cogs.') else cog)
+        matches = await asyncio.wait_for(self.find_closest_match_with_regex('cogs.' + cog if not cog.startswith('cogs.') else cog), timeout=3)
+        if not matches:
+            await ctx.reply(f"'{cog}' は読み込まれていません。")
+            return
+
+        if len(matches) > 1:
+            suggestions = '\n'.join(matches)
+            await ctx.reply(f"'{cog}' には複数のマッチが見つかりました。もしかして:\n{suggestions}")
+            return
+
+        closest_match = matches[0]
         await ctx.defer()
         try:
-            await self.bot.reload_extension(closest_match if closest_match else cog)
+            await self.bot.reload_extension(closest_match)
             await self.bot.tree.sync()
-            await ctx.reply(f"{closest_match if closest_match else cog}を再読み込みしました")
+            await ctx.reply(f"{closest_match}を再読み込みしました")
         except commands.ExtensionNotLoaded:
-            msg = f"'{cog}' は読み込まれていません。もしかして: '{closest_match}'?" if closest_match else f"'{cog}' は読み込まれていません。"
-            await ctx.reply(msg)
+            await ctx.reply(f"'{closest_match}' は読み込まれていません。")
         except commands.ExtensionFailed as e:
-            await ctx.reply(f"'{closest_match if closest_match else cog}' の再読み込み中にエラーが発生しました。\n{type(e).__name__}: {e}")
+            await ctx.reply(f"'{closest_match}' の再読み込み中にエラーが発生しました。\n{type(e).__name__}: {e}")
+
+    async def find_closest_match_with_regex(self, user_input):
+        available_cogs = self._get_available_cogs()
+        pattern = re.compile(re.escape(user_input), re.IGNORECASE)
+        matches = [cog for cog in available_cogs if pattern.search(cog)]
+        return difflib.get_close_matches(user_input, available_cogs, n=5, cutoff=0.0)
 
     @commands.hybrid_command(name='list_cogs', with_app_command=True)
     @commands.is_owner()

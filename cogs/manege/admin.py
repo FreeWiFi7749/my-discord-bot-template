@@ -65,19 +65,5 @@ class AdminCog(commands.Cog):
                 self._last_result = ret
                 await ctx.send(f'```py\n{value}{ret}\n```')
 
-    @commands.hybrid_command(name='clear', with_app_command=True)
-    @commands.has_permissions(manage_messages=True)
-    async def purge(self, ctx, limit: int):
-        """メッセージを削除する"""
-        if not ctx.interaction:
-            deleted = await ctx.channel.purge(limit=limit)
-            message = f'削除されたメッセージの数: `{len(deleted)}`'
-            await ctx.send(message, delete_after=5)
-        else:
-            await ctx.defer(ephemeral=True)
-            deleted = await ctx.channel.purge(limit=limit)
-            message = f'削除されたメッセージの数: `{len(deleted)}`'
-            await ctx.send(message, ephemeral=True)
-
 async def setup(bot):
     await bot.add_cog(AdminCog(bot))
