@@ -20,4 +20,6 @@ jobs:
           script: |
             cd ${{ secrets.SERVER_DEPLOY_DIR }}
             git pull origin main
-            sudo systemctl restart spam-bot.service
+            sudo systemctl stop spam-bot.service
+            sleep 15
+            sudo systemctl start spam-bot.service
