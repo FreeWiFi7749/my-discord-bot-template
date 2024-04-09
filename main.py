@@ -140,6 +140,7 @@ class MyBot(commands.AutoShardedBot):
         await self.wait_until_ready()
         print("setup_hook is called")
         await self.load_cogs('cogs')
+        await self.load_backup_cogs('cogs/backup')
         await self.tree.sync()
         if not self.initialized:
             print("Initializing...")
@@ -171,7 +172,7 @@ class MyBot(commands.AutoShardedBot):
     async def load_cogs(self, folder_name: str):
         cur = pathlib.Path('.')
         for p in cur.glob(f"{folder_name}/**/*.py"):
-            if p.stem == "__init__":
+            if p.stem == "__init__" or "backup" in p.parts:
                 continue
             try:
                 cog_path = p.relative_to(cur).with_suffix('').as_posix().replace('/', '.')
@@ -179,6 +180,19 @@ class MyBot(commands.AutoShardedBot):
                 print(f'{cog_path} loaded successfully.')
             except commands.ExtensionFailed as e:
                 print(f'Failed to load extension {p.stem}: {e}')
+
+    async def load_backup_cogs(self, folder_name: str):
+        if folder_name == "cogs/backup":
+            cur = pathlib.Path('.')
+            for p in cur.glob(f"{folder_name}/**/*.py"):
+                if p.stem == "__init__":
+                    continue
+                try:
+                    cog_path = p.relative_to(cur).with_suffix('').as_posix().replace('/', '.')
+                    await self.load_extension(cog_path)
+                    print(f'{cog_path} loaded successfully.')
+                except commands.ExtensionFailed as e:
+                    print(f'Failed to load extension {p.stem}: {e}')
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
