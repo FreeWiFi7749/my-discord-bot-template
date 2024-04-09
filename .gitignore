@@ -5,7 +5,7 @@
 .DS_Store
 
 # 開発ツールの設定
-.vscode/
+#.vscode/
 
 # 開発用ディレクトリ
 #dev/
