@@ -4,8 +4,6 @@ import asyncio
 
 presences = [
     {"type": "Playing", "name": "/helpでコマンドを確認"},
-    {"type": "Playing", "name": "Ver.1.0.0β"},
-    {"type": "Watching", "name": "スパムから保護中"}
 
 ]
 

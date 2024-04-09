@@ -47,7 +47,7 @@ logger.setLevel(logging.INFO)
 logger.addHandler(SessionIDHandler())
 
 TOKEN = os.getenv('BOT_TOKEN')
-command_prefix = ['anti:/', 'a／', 'a/', 'a!/', 'a!／', 'a!']
+command_prefix = ['!']
 main_guild_id = int(os.getenv('MAIN_GUILD_ID'))
 startup_channel_id = int(os.getenv('STARTUP_CHANNEL_ID'))
 main_dev_channel_id = int(os.getenv('BUG_REPORT_CHANNLE_ID'))
@@ -139,17 +139,16 @@ class MyBot(commands.AutoShardedBot):
     async def after_ready(self):
         await self.wait_until_ready()
         print("setup_hook is called")
+        await self.change_presence(activity=discord.Game(name="起動中.."))
         await self.load_cogs('cogs')
-        await self.load_backup_cogs('cogs/backup')
         await self.tree.sync()
         if not self.initialized:
             print("Initializing...")
-            await self.change_presence(activity=discord.Game(name="起動中.."))
-            self.loop.create_task(presence.update_presence(self))
             self.initialized = True
             print('------')
             print('All cogs have been loaded and bot is ready.')
             print('------')
+            self.loop.create_task(presence.update_presence(self))
 
     async def on_ready(self):
         print("on_ready is called")
@@ -181,19 +180,6 @@ class MyBot(commands.AutoShardedBot):
             except commands.ExtensionFailed as e:
                 print(f'Failed to load extension {p.stem}: {e}')
 
-    async def load_backup_cogs(self, folder_name: str):
-        if folder_name == "cogs/backup":
-            cur = pathlib.Path('.')
-            for p in cur.glob(f"{folder_name}/**/*.py"):
-                if p.stem == "__init__":
-                    continue
-                try:
-                    cog_path = p.relative_to(cur).with_suffix('').as_posix().replace('/', '.')
-                    await self.load_extension(cog_path)
-                    print(f'{cog_path} loaded successfully.')
-                except commands.ExtensionFailed as e:
-                    print(f'Failed to load extension {p.stem}: {e}')
-
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CommandError):
@@ -219,8 +205,65 @@ class MyBot(commands.AutoShardedBot):
             await self.get_channel(self.ERROR_LOG_CHANNEL_ID).send(embed=e)
 
             view = BugReportView(self, str(error_id), str(channel_id), str(server_id), ctx.command.qualified_name if ctx.command else "N/A", server_name)
+            if hasattr(ctx, 'interaction') and ctx.interaction:
+                es = discord.Embed(
+                    title="エラー通知",
+                    description=(
+                        "> <:error:1226790218552836167>コマンド実行中にエラーが発生しました。\n"
+                        f"エラーID: `{error_id}`\n"
+                        f"チャンネル: {channel_mention}\n"
+                        f"サーバー: `{server_name}`\n\n"
+                        "__下のボタンを押してバグを報告してください。__\n参考となるスクリーンショットがある場合は**__事前に画像URL__**を準備してください。"
+                    ),
+                    color=discord.Color.red()
+                )
+                es.set_footer(text="バグ報告に貢献してくれた方にはサポート鯖で特別なロールを付与します。")
+                view = BugReportView(self, str(error_id), str(channel_id), str(server_id), ctx.interaction.command.qualified_name if ctx.interaction.command else "N/A", server_name)
 
-            embed_dm = discord.Embed(
+                await ctx.interaction.response.send_message(embed=es, view=view, ephemeral=True)
+            else:
+                ed = discord.Embed(
+                    title="エラー通知",
+                    description=(
+                        "> <:error:1226790218552836167>コマンド実行中にエラーが発生しました。\n"
+                        f"エラーID: `{error_id}`\n"
+                        f"チャンネル: {channel_mention}\n"
+                        f"サーバー: `{server_name}`\n\n"
+                        "__下のボタンを押してバグを報告してください。__\n参考となるスクリーンショットがある場合は**__事前に画像URL__**を準備してください。"
+                    ),
+                    color=discord.Color.red()
+                )
+                ed.set_footer(text="バグ報告に貢献してくれた方にはサポート鯖で特別なロールを付与します。")
+
+                await ctx.author.send(embed=ed, view=view)
+
+    @commands.Cog.listener()
+    async def on_application_command_error(self, interaction: discord.Interaction, error):
+        if isinstance(error, commands.CommandInvokeError):
+            await interaction.response.defer(ephemeral=True)
+
+            error_id = uuid.uuid4()
+
+            channel_id = interaction.channel_id
+            server_id = interaction.guild_id if interaction.guild else 'DM'
+            server_name = interaction.guild.name if interaction.guild else 'DM'
+            channel_mention = f"<#{channel_id}>"
+
+            e = discord.Embed(
+                title="エラー通知",
+                description=(
+                    "> <:error:1226790218552836167>コマンド実行中にエラーが発生しました。\n"
+                    f"**エラーID**: `{error_id}`\n"
+                    f"**コマンド**: {interaction.command.qualified_name if interaction.command else 'N/A'}\n"
+                    f"**ユーザー**: {interaction.user.mention}\n"
+                    f"**エラーメッセージ**: {error}\n"
+                ),
+                color=discord.Color.red()
+            )
+            e.set_footer(text=f"サーバー: {server_name}")
+            await self.get_channel(self.ERROR_LOG_CHANNEL_ID).send(embed=e)
+
+            embed_slash = discord.Embed(
                 title="エラー通知",
                 description=(
                     "> <:error:1226790218552836167>コマンド実行中にエラーが発生しました。\n"
@@ -231,9 +274,15 @@ class MyBot(commands.AutoShardedBot):
                 ),
                 color=discord.Color.red()
             )
-            embed_dm.set_footer(text="バグ報告に貢献してくれた方にはサポート鯖で特別なロールを付与します。")
+            embed_slash.set_footer(text="バグ報告に貢献してくれた方にはサポート鯖で特別なロールを付与します。")
+            view = BugReportView(self, str(error_id), str(channel_id), str(server_id), interaction.command.qualified_name if interaction.command else "N/A", server_name)
 
-            await ctx.author.send(embed=embed_dm, view=view)
+            await interaction.response.send_message(embed=embed_slash, view=view, ephemeral=True)
+
+intent: discord.Intents = discord.Intents.all()
+bot = MyBot(command_prefix=command_prefix, intents=intent, help_command=CustomHelpCommand())
+
+bot.run(TOKEN) 
 
 intent: discord.Intents = discord.Intents.all()
 bot = MyBot(command_prefix=command_prefix, intents=intent, help_command=CustomHelpCommand())

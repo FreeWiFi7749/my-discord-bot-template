@@ -6,7 +6,6 @@ import datetime
 import subprocess
 import os
 from dotenv import load_dotenv
-from utils.get_ba import fetch_latest_announcement
 
 load_dotenv()
 bot_owner_id = int(os.getenv('BOT_OWNER_ID'))
@@ -79,18 +78,10 @@ class BotInfoCog(commands.Cog):
 
         embed = discord.Embed(title="BOT情報", description="バグ発見時: </bug_report:1226307114943774786>\nまたは<@707320830387814531>にDM",color=0x00ff00)
         embed.add_field(name="ーーーーーーーー", value="", inline=False)
-        ba_channel_id = int(os.getenv('BOT_ANNOUNCEMENT_CHANNEL_ID'))
-        latest_announcement = await fetch_latest_announcement(self.bot, ba_channel_id)
 
-        if latest_announcement != "お知らせはありません。" and latest_announcement != "指定されたチャンネルが見つかりません。":
-            embed.add_field(name="最新のお知らせ", value=f"\n\n{latest_announcement}", inline=False)
-            embed.add_field(name="ーーーーーーーー", value="", inline=False)
-
-        # シャード情報の取得
         shard_id = ctx.guild.shard_id if ctx.guild is not None else 'N/A'
         total_shards = self.bot.shard_count if hasattr(self.bot, 'shard_count') else 'N/A'
 
-        # シャード情報を追加
         embed.add_field(name="シャードID", value=f"{shard_id}/{total_shards}", inline=True)
         embed.add_field(name="ーーーーーーーー", value="", inline=False)
 

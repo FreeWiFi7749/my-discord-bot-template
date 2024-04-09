@@ -8,7 +8,7 @@
 .vscode/
 
 # 開発用ディレクトリ
-dev/
+#dev/
 
 # データディレクトリ
-data/
+#data/
