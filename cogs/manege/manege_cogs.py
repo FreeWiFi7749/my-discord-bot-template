@@ -7,6 +7,8 @@ import pathlib
 from utils import startup
 import asyncio
 import re
+from discord import app_commands
+
 class ManagementCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -25,36 +27,44 @@ class ManagementCog(commands.Cog):
         print(available_cogs)
         return available_cogs
 
-    @commands.hybrid_command(name='reload', hidden=True)
-    @commands.is_owner()
-    async def reload_cog(self, ctx, *, cog: str):
-        """指定したcogを再読み込みします"""
-        matches = await asyncio.wait_for(self.find_closest_match_with_regex('cogs.' + cog if not cog.startswith('cogs.') else cog), timeout=3)
-        if not matches:
-            await ctx.reply(f"'{cog}' は読み込まれていません。")
-            return
-
-        if len(matches) > 1:
-            suggestions = '\n'.join(matches)
-            await ctx.reply(f"'{cog}' には複数のマッチが見つかりました。もしかして:\n{suggestions}")
-            return
-
-        closest_match = matches[0]
-        await ctx.defer()
-        try:
-            await self.bot.reload_extension(closest_match)
-            await self.bot.tree.sync()
-            await ctx.reply(f"{closest_match}を再読み込みしました")
-        except commands.ExtensionNotLoaded:
-            await ctx.reply(f"'{closest_match}' は読み込まれていません。")
-        except commands.ExtensionFailed as e:
-            await ctx.reply(f"'{closest_match}' の再読み込み中にエラーが発生しました。\n{type(e).__name__}: {e}")
-
-    async def find_closest_match_with_regex(self, user_input):
+    async def cog_autocomplete(
+        self, 
+        interaction: discord.Interaction, 
+        current: str
+    ) -> list[app_commands.Choice[str]]:
         available_cogs = self._get_available_cogs()
-        pattern = re.compile(re.escape(user_input), re.IGNORECASE)
-        matches = [cog for cog in available_cogs if pattern.search(cog)]
-        return difflib.get_close_matches(user_input, available_cogs, n=5, cutoff=0.0)
+        filtered_cogs = [cog for cog in available_cogs if current.lower() in cog.lower()]
+        return [
+            app_commands.Choice(name=cog, value=cog) for cog in filtered_cogs[:25]
+        ]
+
+    async def is_owner_interaction_check(interaction: discord.Interaction):
+        return await interaction.client.is_owner(interaction.user)
+
+    def is_owner_check():
+        async def predicate(interaction: discord.Interaction):
+            return await ManagementCog.is_owner_interaction_check(interaction)
+        return app_commands.check(predicate)
+
+    @app_commands.command(name="reload", description="指定したcogを再読み込みします")
+    @app_commands.describe(cog="再読み込みするcogの名前")
+    @app_commands.autocomplete(cog=cog_autocomplete)
+    @is_owner_check()
+    async def reload_cog(self, interaction: discord.Interaction, cog: str):
+        available_cogs = self._get_available_cogs()
+        
+        if cog not in available_cogs:
+            await interaction.response.send_message(f"'{cog}' は利用可能なcogのリストに含まれていません。")
+            return
+
+        try:
+            await self.bot.reload_extension(cog)
+            await self.bot.tree.sync()
+            await interaction.response.send_message(f"{cog}を再読み込みしました。")
+        except commands.ExtensionNotLoaded:
+            await interaction.response.send_message(f"'{cog}' は読み込まれていません。")
+        except commands.ExtensionFailed as e:
+            await interaction.response.send_message(f"'{cog}' の再読み込み中にエラーが発生しました。\n{type(e).__name__}: {e}")
 
     @commands.hybrid_command(name='list_cogs', with_app_command=True)
     @commands.is_owner()
