@@ -182,13 +182,42 @@ class MyBot(commands.AutoShardedBot):
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
-        if isinstance(error, commands.CommandError):
+        if hasattr(ctx, 'handled') and ctx.handled:
+            return
+
+        if isinstance(error, commands.CommandNotFound):
+            await ctx.send("そのコマンドは存在しません。")
+            ctx.handled = True
+            return
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send("引数が不足しています。")
+            ctx.handled = True
+            return
+        if isinstance(error, commands.BadArgument):
+            await ctx.send("引数が不正です。")
+            ctx.handled = True
+            return
+        if isinstance(error, commands.MissingPermissions):
+            await ctx.send("あなたはのコマンドを実行する権限がありません。")
+            ctx.handled = True
+            return
+        if isinstance(error, commands.BotMissingPermissions):
+            await ctx.send("BOTがこのコマンドを実行する権限がありません。")
+            ctx.handled = True
+            return
+        if isinstance(error, commands.CommandOnCooldown):
+            await ctx.send(f"このコマンドは{error.retry_after:.2f}秒後に再実行できます。")
+            ctx.handled = True
+            return
+        
+        if not hasattr(ctx, 'handled') or not ctx.handled:
             error_id = uuid.uuid4()
 
             channel_id = ctx.channel.id
             server_id = ctx.guild.id if ctx.guild else 'DM'
             server_name = ctx.guild.name if ctx.guild else 'DM'
             channel_mention = f"<#{channel_id}>"
+            now = datetime.now(pytz.timezone('Asia/Tokyo'))
 
             e = discord.Embed(
                 title="エラー通知",
@@ -199,15 +228,16 @@ class MyBot(commands.AutoShardedBot):
                     f"**ユーザー**: {ctx.author.mention}\n"
                     f"**エラーメッセージ**: {error}\n"
                 ),
-                color=discord.Color.red()
+                color=discord.Color.red(),
+                timestamp=now
             )
             e.set_footer(text=f"サーバー: {server_name}")
             await self.get_channel(self.ERROR_LOG_CHANNEL_ID).send(embed=e)
 
             view = BugReportView(self, str(error_id), str(channel_id), str(server_id), ctx.command.qualified_name if ctx.command else "N/A", server_name)
             if hasattr(ctx, 'interaction') and ctx.interaction:
-                es = discord.Embed(
-                    title="エラー通知",
+                ed = discord.Embed(
+                    title="エラーが発生しました",
                     description=(
                         "> <:error:1226790218552836167>コマンド実行中にエラーが発生しました。\n"
                         f"エラーID: `{error_id}`\n"
@@ -215,15 +245,16 @@ class MyBot(commands.AutoShardedBot):
                         f"サーバー: `{server_name}`\n\n"
                         "__下のボタンを押してバグを報告してください。__\n参考となるスクリーンショットがある場合は**__事前に画像URL__**を準備してください。"
                     ),
-                    color=discord.Color.red()
+                    color=discord.Color.red(),
+                    timestamp=now
                 )
-                es.set_footer(text="バグ報告に貢献してくれた方にはサポート鯖で特別なロールを付与します。")
+                ed.set_footer(text="バグ報告に貢献してくれた方にはサポート鯖で特別なロールを付与します。")
                 view = BugReportView(self, str(error_id), str(channel_id), str(server_id), ctx.interaction.command.qualified_name if ctx.interaction.command else "N/A", server_name)
 
-                await ctx.interaction.response.send_message(embed=es, view=view, ephemeral=True)
+                await ctx.interaction.response.send_message(embed=ed, view=view, ephemeral=True)
             else:
                 ed = discord.Embed(
-                    title="エラー通知",
+                    title="エラーが発生しました",
                     description=(
                         "> <:error:1226790218552836167>コマンド実行中にエラーが発生しました。\n"
                         f"エラーID: `{error_id}`\n"
@@ -239,15 +270,44 @@ class MyBot(commands.AutoShardedBot):
 
     @commands.Cog.listener()
     async def on_application_command_error(self, interaction: discord.Interaction, error):
-        if isinstance(error, commands.CommandInvokeError):
-            await interaction.response.defer(ephemeral=True)
+        if hasattr(interaction, 'handled') and interaction.handled:
+            return
 
+        if isinstance(error, commands.CommandNotFound):
+            await interaction.response.send_message("そのコマンドは存在しません。", ephemeral=True)
+            interaction.handled = True
+            return
+        if isinstance(error, commands.MissingRequiredArgument):
+            await interaction.response.send_message("引数が不足しています。", ephemeral=True)
+            interaction.handled = True
+            return
+        if isinstance(error, commands.BadArgument):
+            await interaction.response.send_message("引数が不正です。", ephemeral=True)
+            interaction.handled = True
+            return
+        if isinstance(error, commands.MissingPermissions):
+            await interaction.response.send_message("あなたはのコマンドを実行する権限がありません。", ephemeral=True)
+            interaction.handled = True
+            return
+        if isinstance(error, commands.BotMissingPermissions):
+            await interaction.response.send_message("BOTがこのコマンドを実行する権限がありません。", ephemeral=True)
+            interaction.handled = True
+            return
+        if isinstance(error, commands.CommandOnCooldown):
+            await interaction.response.send_message(f"このコマンドは{error.retry_after:.2f}秒後に再実行できます。", ephemeral=True)
+            interaction.handled = True
+            return
+
+        if not interaction.handled:
             error_id = uuid.uuid4()
+            print(error)
 
             channel_id = interaction.channel_id
             server_id = interaction.guild_id if interaction.guild else 'DM'
             server_name = interaction.guild.name if interaction.guild else 'DM'
+            command_name = interaction.command.qualified_name if interaction.command else "N/A"
             channel_mention = f"<#{channel_id}>"
+            now = datetime.now(pytz.timezone('Asia/Tokyo'))
 
             e = discord.Embed(
                 title="エラー通知",
@@ -258,13 +318,14 @@ class MyBot(commands.AutoShardedBot):
                     f"**ユーザー**: {interaction.user.mention}\n"
                     f"**エラーメッセージ**: {error}\n"
                 ),
-                color=discord.Color.red()
+                color=discord.Color.red(),
+                timestamp=now
             )
             e.set_footer(text=f"サーバー: {server_name}")
             await self.get_channel(self.ERROR_LOG_CHANNEL_ID).send(embed=e)
 
-            embed_slash = discord.Embed(
-                title="エラー通知",
+            es = discord.Embed(
+                title="エラーが発生しました",
                 description=(
                     "> <:error:1226790218552836167>コマンド実行中にエラーが発生しました。\n"
                     f"エラーID: `{error_id}`\n"
@@ -272,12 +333,16 @@ class MyBot(commands.AutoShardedBot):
                     f"サーバー: `{server_name}`\n\n"
                     "__下のボタンを押してバグを報告してください。__\n参考となるスクリーンショットがある場合は**__事前に画像URL__**を準備してください。"
                 ),
-                color=discord.Color.red()
+                color=discord.Color.red(),
+                timestamp=now
             )
-            embed_slash.set_footer(text="バグ報告に貢献してくれた方にはサポート鯖で特別なロールを付与します。")
+            es.set_footer(text="バグ報告に貢献してくれた方にはサポート鯖で特別なロールを付与します。")
             view = BugReportView(self, str(error_id), str(channel_id), str(server_id), interaction.command.qualified_name if interaction.command else "N/A", server_name)
 
-            await interaction.response.send_message(embed=embed_slash, view=view, ephemeral=True)
+            try:
+                await interaction.response.send_message(embed=es, view=view, ephemeral=True)
+            except discord.InteractionResponded:
+                await interaction.followup.send(embed=es, view=view, ephemeral=True)
 
 intent: discord.Intents = discord.Intents.all()
 bot = MyBot(command_prefix=command_prefix, intents=intent, help_command=CustomHelpCommand())
