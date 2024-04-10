@@ -15,22 +15,6 @@ from discord.ui import View, Button, Modal, TextInput
 
 load_dotenv()
 
-class CustomHelpCommand(commands.DefaultHelpCommand):
-    def command_not_found(self, string):
-        return f"'{string}' というコマンドは見つかりませんでした。"
-
-    def get_command_signature(self, command):
-        return f'使い方: {self.context.clean_prefix}{command.qualified_name} {command.signature}'
-
-    async def send_bot_help(self, mapping):
-        for cog, commands in mapping.items():
-            filtered = await self.filter_commands(commands, sort=True)
-            command_signatures = [self.get_command_signature(c) for c in filtered]
-            self.paginator.add_line(f'**{cog.qualified_name if cog else "その他のコマンド"}:**')
-            for signature in command_signatures:
-                self.paginator.add_line(signature)
-        await self.get_destination().send("\n".join(self.paginator.pages))
-
 session_id = None
 
 class SessionIDHandler(logging.Handler):
@@ -345,6 +329,6 @@ class MyBot(commands.AutoShardedBot):
                 await interaction.followup.send(embed=es, view=view, ephemeral=True)
 
 intent: discord.Intents = discord.Intents.all()
-bot = MyBot(command_prefix=command_prefix, intents=intent, help_command=CustomHelpCommand())
+bot = MyBot(command_prefix=command_prefix, intents=intent, help_command=None)
 
 bot.run(TOKEN)
