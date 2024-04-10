@@ -89,8 +89,30 @@ class HelpCog(commands.Cog):
 
             await interaction.response.send_message(embed=e, view=HelpView(), ephemeral=True)
 
-        if option in(["anti-spam", "これを参考にどんどん追加"]):
-            await HelpSelect().callback(interaction)
+        else:
+            selected_value = option.value
+            if interaction.guild:
+                member = interaction.guild.get_member(interaction.user.id)
+                if member:
+                    color = member.color
+                else:
+                    color = discord.Color.blurple()
+            else:
+                color = discord.Color.blurple()
+            if selected_value == "anti-spam":
+                e = discord.Embed(title='アンチスパムヘルプ', colour=color)
+                e.add_field(name='anti-spam', value='アンチスパム機能に関するヘルプ', inline=False)
+                e.set_thumbnail(url=interaction.client.user.avatar.url)
+                e.set_author(name=f"{interaction.client.user.name}のヘルプ", icon_url=interaction.client.user.avatar.url)
+
+            elif selected_value == "これを参考にどんどん追加":
+                e = discord.Embed(title='バックアップヘルプ', colour=color)
+                e.add_field(name='backup', value='バックアップ機能に関するヘルプ', inline=False)
+                e.set_footer(text="バックアップ機能に関するヘルプです。")
+                e.set_thumbnail(url=interaction.client.user.avatar.url)
+                e.set_author(name=f"{interaction.client.user.name}のヘルプ", icon_url=interaction.client.user.avatar.url)
+
+            await interaction.response.send_message(embed=e, view=HelpView(), ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(HelpCog(bot))
